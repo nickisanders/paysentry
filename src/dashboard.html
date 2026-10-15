@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PaySentry — invoice triage</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ag-grid/32.3.3/ag-grid-community.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ag-grid/32.3.3/styles/ag-grid.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ag-grid/32.3.3/styles/ag-theme-quartz.min.css">
+<style>
+:root{--bg:#0a0c18;--panel:#0f1220;--line:#2d344b;--fg:#e1e6f0;--dim:#828ca0;--green:#38e6b0;--blue:#56a0ff;--purple:#b28dff;--red:#ff7a7a;--yellow:#ffc85a}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:ui-monospace,Menlo,Consolas,monospace;height:100vh;display:flex;flex-direction:column;padding:18px;gap:14px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+h1{font-size:1.4rem}
+.tag{color:var(--dim);font-size:.8rem}
+button{background:var(--green);color:#06251c;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:700;cursor:pointer}
+button.secondary{background:#1c2236;color:var(--fg);border:1px solid var(--line)}
+button:disabled{opacity:.45;cursor:wait}
+#status{color:var(--dim);font-size:.8rem;min-height:1em}
+.policy{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.78rem;flex-wrap:wrap}
+.policy label{color:var(--dim)}
+.policy input[type=number]{width:84px;background:#0a0d1a;border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:4px 6px;font:inherit}
+main{flex:1;display:flex;gap:14px;min-height:0}
+#grid{flex:1.6;min-width:0}
+#detail{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;font-size:.82rem}
+#detail h3{margin-bottom:6px}
+#detail .muted{color:var(--dim)}
+.sigrow{padding:6px 8px;border-left:3px solid var(--line);margin:6px 0;background:#0a0d1a;border-radius:0 6px 6px 0}
+.sigrow b{color:var(--yellow)}
+.rationale{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px;background:#0a0d1a;line-height:1.5}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:.75rem;font-weight:700}
+.b-clean{background:#0d2b22;color:var(--green)} .b-review{background:#2e2410;color:var(--yellow)} .b-high-risk{background:#311318;color:var(--red)}
+.a-paid{color:var(--green)} .a-held{color:var(--yellow)} .a-cancelled{color:var(--red)}
+.ag-theme-quartz-dark{--ag-background-color:#0f1220;--ag-header-background-color:#121630;--ag-border-color:#2d344b;--ag-foreground-color:#e1e6f0;--ag-font-family:ui-monospace,Menlo,monospace;--ag-font-size:12.5px;--ag-row-hover-color:#1a2036}
+footer{color:var(--dim);font-size:.72rem;text-align:center}
+</style></head><body>
+<header>
+  <div><h1>PaySentry</h1><div class="tag">the fraud analyst between "invoice received" and "money sent"</div></div>
+  <button id="seedBtn" class="secondary" onclick="seed()">Seed demo batch</button>
+  <button id="runBtn" onclick="runAnalyst()">Run analyst</button>
+  <span id="status"></span>
+  <div class="policy">
+    <label>auto-pay ≤ $</label><input id="p_auto" type="number">
+    <label>daily ≤ $</label><input id="p_daily" type="number">
+    <label>review ≤ $</label><input id="p_review" type="number">
+    <label><input id="p_newhold" type="checkbox"> hold new payees</label>
+    <button class="secondary" onclick="savePolicy()">Save policy</button>
+  </div>
+</header>
+<main>
+  <div id="grid" class="ag-theme-quartz-dark"></div>
+  <div id="detail"><h3>Invoice detail</h3><div class="muted">Select a row to see every signal, the AI rationale, and what was executed.</div></div>
+</main>
+<footer>PayPal sandbox + Claude · deterministic floor, AI judgment, policy ceiling · nothing moves money outside the limits above</footer>
+<script>
+let gridApi, rows = [];
+const $ = (id) => document.getElementById(id);
+const fmtUsd = (v) => '$' + Number(v).toLocaleString(undefined, {minimumFractionDigits: 2});
+
+const columnDefs = [
+  { field: 'number', headerName: 'invoice', width: 120 },
+  { field: 'vendor', flex: 1, minWidth: 150 },
+  { field: 'amount', width: 110, valueFormatter: p => fmtUsd(p.value), type: 'rightAligned' },
+  { field: 'score', width: 90, cellRenderer: p => {
+      const c = p.data.band === 'high-risk' ? 'var(--red)' : p.data.band === 'review' ? 'var(--yellow)' : 'var(--green)';
+      return `<span style="color:${c};font-weight:700">${p.value}</span>`; } },
+  { field: 'band', width: 110, cellRenderer: p => `<span class="badge b-${p.value}">${p.value}</span>` },
+  { field: 'signals', headerName: '#sig', width: 80, valueGetter: p => p.data.sigCount },
+  { field: 'verdict', width: 100 },
+  { field: 'action', width: 110, cellRenderer: p => `<span class="a-${p.value}">${p.value}</span>` },
+  { field: 'mode', headerName: 'ai', width: 110 },
+];
+
+function toRow(r) {
+  return {
+    number: r.invoice.number || r.invoice.id, vendor: r.invoice.vendorName, amount: r.invoice.amount,
+    score: r.screen.score, band: r.screen.band, sigCount: r.screen.signals.filter(s => s.pts > 0).length,
+    verdict: r.verdict.verdict, action: r.executed, mode: r.verdict.mode, _rec: r,
+  };
+}
+
+function showDetail(r) {
+  const inv = r.invoice;
+  const sig = r.screen.signals.map(s =>
+    `<div class="sigrow"><b>${s.id}</b> (${s.pts > 0 ? '+' : ''}${s.pts}) <span class="muted">${s.detail || ''}</span></div>`).join('') ||
+    '<div class="muted">no signals fired</div>';
+  $('detail').innerHTML = `
+    <h3>${inv.number} · ${inv.vendorName}</h3>
+    <div class="muted">${inv.vendorEmail} · ${fmtUsd(inv.amount)} · ${inv.term || ''} · ${inv.date}</div>
+    <p style="margin:8px 0">items: ${inv.items.map(i => i.name).join('; ')}</p>
+    ${inv.note ? `<p class="muted" style="margin-bottom:8px">note: “${inv.note}”</p>` : ''}
+    <p>score <b>${r.screen.score}</b> → <span class="badge b-${r.screen.band}">${r.screen.band}</span>
+       → verdict <b>${r.verdict.verdict}</b> → executed <b class="a-${r.executed}">${r.executed}</b></p>
+    ${r.policyReasons.length ? `<p class="muted" style="margin-top:6px">policy: ${r.policyReasons.join('; ')}</p>` : ''}
+    <h3 style="margin-top:14px">signals</h3>${sig}
+    <h3 style="margin-top:14px">analyst rationale <span class="muted" style="font-weight:400">(${r.verdict.mode})</span></h3>
+    <div class="rationale">${r.verdict.rationale}</div>`;
+}
+
+async function refresh() {
+  const s = await fetch('/api/state').then(r => r.json());
+  rows = s.processed.map(toRow);
+  gridApi.setGridOption('rowData', rows);
+  $('p_auto').value = s.policy.autoPayMax; $('p_daily').value = s.policy.dailyAutoPayTotal;
+  $('p_review').value = s.policy.reviewMax; $('p_newhold').checked = s.policy.newPayeeAlwaysHold;
+  $('status').textContent = `${rows.length} processed · spent today ${fmtUsd(s.spentToday?.total || 0)} · ${s.vendors.length} vendors on ledger`;
+}
+
+async function act(path, btn, label) {
+  const b = $(btn); b.disabled = true; $('status').textContent = label + '…';
+  try {
+    const r = await fetch(path, { method: 'POST' }).then(r => r.json());
+    if (r.error) throw new Error(r.error);
+    await refresh();
+    $('status').textContent = label + ' done' + (r.processed ? ` (${r.processed.length} invoices)` : '');
+  } catch (e) { $('status').textContent = 'error: ' + e.message; }
+  b.disabled = false;
+}
+const seed = () => act('/api/seed', 'seedBtn', 'seeding sandbox batch');
+const runAnalyst = () => act('/api/process', 'runBtn', 'analyst running');
+
+async function savePolicy() {
+  await fetch('/api/policy', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+    autoPayMax: $('p_auto').value, dailyAutoPayTotal: $('p_daily').value,
+    reviewMax: $('p_review').value, newPayeeAlwaysHold: $('p_newhold').checked,
+  })});
+  $('status').textContent = 'policy saved';
+  refresh();
+}
+
+gridApi = agGrid.createGrid($('grid'), {
+  columnDefs, rowData: [], animateRows: true,
+  defaultColDef: { sortable: true, filter: true, resizable: true },
+  onRowClicked: (e) => showDetail(e.data._rec),
+});
+refresh();
+</script></body></html>

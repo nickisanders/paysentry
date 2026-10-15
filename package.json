@@ -6,8 +6,11 @@
   "scripts": {
     "seed": "node seed/seed.mjs",
     "process": "node src/cli.mjs process",
-    "reset": "node src/cli.mjs reset"
+    "reset": "node src/cli.mjs reset",
+    "dashboard": "node src/server.mjs"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }
