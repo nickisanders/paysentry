@@ -54,7 +54,7 @@ const tokRes = await fetch(`${BASE}/v1/oauth2/token`, {
     authorization: 'Basic ' + Buffer.from(`${ID}:${SECRET}`).toString('base64'),
     'content-type': 'application/x-www-form-urlencoded',
   },
-  body: 'grant_type=client_credentials',
+  body: 'grant_type=client_credentials&ignoreCache=true', // ignoreCache: PayPal caches tokens; stale ones keep pre-feature-change scopes
 });
 if (!tokRes.ok) { console.error('token failed:', tokRes.status, await tokRes.text()); process.exit(1); }
 const { access_token: token, expires_in } = await tokRes.json();

@@ -21,6 +21,14 @@ node spike/run.mjs
 
 Expected output: six numbered steps ending in `SPIKE COMPLETE`. That proves token → create → send → poll → record-payment → cancel, i.e. every PayPal interaction the MVP needs.
 
+## Spike result (2026-10-15): COMPLETE — all six steps pass
+
+Verified live against sandbox: token → create (INV2-TZF6…) → send → poll/list → record payment (status MARKED_AS_PAID) → cancel second invoice (status CANCELLED).
+
+Gotchas found (already handled in spike/run.mjs):
+1. **Sandbox apps don't get Invoicing by default.** Enable it per app: dashboard → app → Features → Invoicing. Without it every /v2/invoicing call 403s NOT_AUTHORIZED.
+2. **PayPal caches OAuth tokens (~9h).** After changing app features, the cached token keeps the old scopes. Pass `ignoreCache=true` in the token request body.
+
 ## Open items for Weekend 1 (not blockers)
 
 - Layer `@paypal/agent-toolkit` into the agent loop (ai-sdk flavor) and confirm its tool schemas match the REST behavior verified here
