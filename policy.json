@@ -1,0 +1,6 @@
+{
+  "autoPayMax": 500,
+  "dailyAutoPayTotal": 2000,
+  "reviewMax": 5000,
+  "newPayeeAlwaysHold": true
+}

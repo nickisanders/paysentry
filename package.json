@@ -1,0 +1,13 @@
+{
+  "name": "paysentry",
+  "version": "0.1.0",
+  "description": "AI payments-fraud analyst between 'invoice received' and 'money sent'. PayPal sandbox + Claude.",
+  "type": "module",
+  "scripts": {
+    "seed": "node seed/seed.mjs",
+    "process": "node src/cli.mjs process",
+    "reset": "node src/cli.mjs reset"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
