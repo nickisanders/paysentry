@@ -1,5 +1,7 @@
 # PaySentry
 
+**Live demo:** https://paysentry-fx7x4.ondigitalocean.app — click "Seed demo batch", then "Run analyst".
+
 An AI payments-fraud analyst that sits between "invoice received" and "money sent."
 
 PaySentry watches a PayPal inbox of inbound invoices, screens each one through a two-stage pipeline, pays the safe ones autonomously within policy limits you set, holds the questionable ones for a human, and blocks the fraudulent ones with a documented rationale.
