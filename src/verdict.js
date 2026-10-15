@@ -42,7 +42,7 @@ Rules:
 - You may NEVER de-escalate if any of these fired: ${screen.floorSignals.join(', ') || '(none fired)'}.
 - Judge like an investigator: who benefits, what changed, what would verification cost.
 
-Reply with ONLY a JSON object: {"verdict": "...", "rationale": "<2-4 sentences, plain language>", "confidence": 0.0-1.0}`;
+Reply with ONLY a JSON object: {"verdict": "...", "rationale": "<at most 3 sentences, plain language, no preamble>", "confidence": 0.0-1.0}`;
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -53,7 +53,7 @@ Reply with ONLY a JSON object: {"verdict": "...", "rationale": "<2-4 sentences, 
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 400,
+      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
