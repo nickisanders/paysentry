@@ -73,10 +73,10 @@ Each signal: id, what it catches, exact logic, points. Points feed a 0-100 risk 
 
 Ledger bootstrap: seed script writes vendors.json directly with synthetic history (5-8 prior invoices for Acme + CloudHost) rather than creating 30 paid sandbox invoices. Faster, deterministic, and judges can read it.
 
-## Open questions for Nicki (tune from the day job)
+## Tuning review (Nicki, 2026-10-15) — catalog FINAL for build
 
-1. AMOUNT_ANOMALY: is 3x median / max+50% the right shape, or do you prefer stddev-based for vendors with volatile billing?
-2. Phrase lists: additions from real BEC cases you've seen? (Generic/public phrasing only; nothing from client casework.)
-3. Points and the 25/60 band cuts: sane, or tune after seeing seed-batch scores?
-4. Trust credit (-10 after 5 clean paid invoices): keep, or does it offend the investigator instinct?
+1. AMOUNT_ANOMALY: default shape stands (3x median / max+50%); revisit only if seed scores look off.
+2. Phrase lists: shipping as drafted; additions welcome anytime before the video.
+3. Band cuts 25/60: **confirmed fine.**
+4. Trust credit: **confirmed, keep.**
 5. ~~CRYPTO_DEMAND hard-block?~~ Resolved 2026-10-15: no hard block. Split into CRYPTO_DEMAND (redirect phrasing + address, 35 pts; new-payee combo already reaches block band) and CRYPTO_CONTEXT (address as subject matter, 5 pts, still triggers Wallet X-Ray enrichment). Rationale: address-presence alone would block legitimate forensics/crypto-industry invoices, and a known vendor demanding crypto should hold-for-verification (possible account compromise), not silently block.
