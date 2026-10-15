@@ -57,9 +57,11 @@ console.log('ledger seeded: 3 known vendors with history');
 // rides in business_name + a "From:" line in the memo; parseInvoice reads it back.
 // In production PaySentry sits on the payer side and reads the real sender.
 const RECIPIENT = { billing_info: { email_address: 'ap@target-company.example.com' } };
+// invoice numbers are unique per PayPal account forever, so each seed run gets a suffix
+const RUN = Date.now().toString(36).slice(-4);
 const inv = (vendorName, vendorEmail, number, term, note, items) => ({
   detail: {
-    currency_code: 'USD', invoice_number: number, invoice_date: today, note,
+    currency_code: 'USD', invoice_number: `${number}-${RUN}`, invoice_date: today, note,
     memo: `From: ${vendorEmail}`,
     payment_term: { term_type: term },
   },
