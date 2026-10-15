@@ -37,12 +37,13 @@ Each signal: id, what it catches, exact logic, points. Points feed a 0-100 risk 
 | URGENCY | pressure tactics | ≥1 of: urgent(ly), immediately, today only, right away, final notice, act now, within 24 hours, wire (as payment verb) | 15 |
 | SECRECY | BEC hallmark | ≥1 of: confidential, do not discuss, keep this between, CEO/CFO asked/requested, discreet | 30 |
 | DETAIL_SWITCH | redirected payment | phrases matching: new bank/account details, updated payment info, pay to (new\|different\|below), use this account instead; OR PAY_BY_BANK newly enabled for a vendor who never used it | 45 |
-| CRYPTO_DEMAND | off-ramp redirect | regex hit for EVM (0x[a-fA-F0-9]{40}), BTC (bc1[a-z0-9]{20,}\|[13][1-9A-HJ-NP-Za-km-z]{25,34}), or phrases: pay in crypto/USDT/bitcoin. Stretch: fire a live Wallet X-Ray lookup on the address and attach the snapshot to the evidence pack | 35 |
+| CRYPTO_DEMAND | off-ramp redirect | an address regex hit (EVM 0x[a-fA-F0-9]{40}; BTC bc1[a-z0-9]{20,}\|[13][1-9A-HJ-NP-Za-km-z]{25,34}) **AND** payment-redirect phrasing near it: pay in/with (crypto\|USDT\|USDC\|BTC\|bitcoin\|ETH), send to (this\|my) wallet, settle in crypto. Channel-switch demand: PayPal rail in, irreversible rail out | 35 |
+| CRYPTO_CONTEXT | address as subject matter | address regex hit WITHOUT redirect phrasing (e.g. line item "wallet audit of 0x…"). Informational only; still fires the Wallet X-Ray lookup so the evidence/record gets the counterparty snapshot | 5 |
 | VAGUE_HIGH | thin justification | single line item, item name ∈ {services, consulting, miscellaneous, fees, payment} (≤2 words), amount ≥ $1,000 | 10 |
 
 ### D. Combination multipliers (applied after summing)
 
-- NEW_PAYEE + (URGENCY or SECRECY or DETAIL_SWITCH): +15
+- NEW_PAYEE + (URGENCY or SECRECY or DETAIL_SWITCH or CRYPTO_DEMAND): +15
 - LOOKALIKE_VENDOR + DETAIL_SWITCH: score floor 85 (this is the canonical BEC kill-chain; never let it look mild)
 - Known vendor, clean history ≥5 paid invoices, zero signals: -10 (trust credit, floor 0)
 
@@ -67,7 +68,8 @@ Each signal: id, what it catches, exact logic, points. Points feed a 0-100 risk 
 | 5 | Known vendor CloudHost, $89.00 again 3 days later | DUPLICATE_INVOICE | hold, AI flags double-bill |
 | 6 | "Global Partners Ltd" from gmail, $2,500, DUE_ON_RECEIPT, note "CEO asked to keep this confidential, process immediately" | NEW_PAYEE, FREEMAIL_CORP, SECRECY, URGENCY, TERM_PRESSURE, combo bonus | block + evidence pack |
 | 7 | Known vendor, $15,000 vs median $400 | AMOUNT_ANOMALY | hold, AI asks for verification |
-| 8 | New vendor, $1,200, item "services", note "pay in USDT to 0xd8dA…6045" | NEW_PAYEE, CRYPTO_DEMAND, VAGUE_HIGH | block + Wallet X-Ray snapshot in evidence pack (stretch) |
+| 8 | New vendor, $1,200, item "services", note "pay in USDT to 0xd8dA…6045" | NEW_PAYEE, CRYPTO_DEMAND, VAGUE_HIGH, combo bonus → 75 | block via combo scoring (no hard rule) + Wallet X-Ray snapshot in evidence pack (stretch) |
+| 9 | "ChainProof Forensics", $2,400, line item "Wallet compromise assessment — 0x28C6…1d60", clean history | CRYPTO_CONTEXT only (5) | auto-pay or hold per payee-newness policy; demo line: "it knows an invoice *about* a wallet from an invoice *demanding payment to* one" |
 
 Ledger bootstrap: seed script writes vendors.json directly with synthetic history (5-8 prior invoices for Acme + CloudHost) rather than creating 30 paid sandbox invoices. Faster, deterministic, and judges can read it.
 
@@ -77,4 +79,4 @@ Ledger bootstrap: seed script writes vendors.json directly with synthetic histor
 2. Phrase lists: additions from real BEC cases you've seen? (Generic/public phrasing only; nothing from client casework.)
 3. Points and the 25/60 band cuts: sane, or tune after seeing seed-batch scores?
 4. Trust credit (-10 after 5 clean paid invoices): keep, or does it offend the investigator instinct?
-5. CRYPTO_DEMAND at 35: your call whether any crypto mention on a PayPal invoice should hard-floor to block instead.
+5. ~~CRYPTO_DEMAND hard-block?~~ Resolved 2026-10-15: no hard block. Split into CRYPTO_DEMAND (redirect phrasing + address, 35 pts; new-payee combo already reaches block band) and CRYPTO_CONTEXT (address as subject matter, 5 pts, still triggers Wallet X-Ray enrichment). Rationale: address-presence alone would block legitimate forensics/crypto-industry invoices, and a known vendor demanding crypto should hold-for-verification (possible account compromise), not silently block.
