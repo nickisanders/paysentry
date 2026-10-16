@@ -1,6 +1,6 @@
 # PaySentry
 
-**Live demo:** https://paysentry-fx7x4.ondigitalocean.app — click "Seed demo batch", then "Run analyst".
+**Live demo:** https://paysentry-fx7x4.ondigitalocean.app · **Video (90s):** https://youtu.be/4eIkKsPUNYY — click "Seed demo batch", then "Run analyst".
 
 An AI payments-fraud analyst that sits between "invoice received" and "money sent."
 
